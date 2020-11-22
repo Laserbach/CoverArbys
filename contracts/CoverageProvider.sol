@@ -263,14 +263,11 @@ contract CoverageProvider is Ownable {
       IERC20 claimToken =  IERC20(claimTokenAddr);
       IERC20 noClaimToken =  IERC20(noclaimTokenAddr);
 
-      //_swapTokenForDai(_claimPool, IERC20(claimTokenAddr), _daiAmount);
       _swapTokenForDai(_claimPool, claimToken, _daiAmount);
 
       uint256 daiAmount = daiToken.balanceOf(address(this));
       require(daiToken.transfer(msg.sender, daiAmount), "ERR_TRANSFER_FAILED");
 
-      //uint256 noClaimAmount = IERC20(noclaimTokenAddr).balanceOf(address(this));
-      //require(IERC20(noclaimTokenAddr).transfer(msg.sender, noClaimAmount), "ERR_TRANSFER_FAILED");
       uint256 noClaimAmount = noClaimToken.balanceOf(address(this));
       require(noClaimToken.transfer(msg.sender, noClaimAmount), "ERR_TRANSFER_FAILED");
     }
