@@ -7,6 +7,7 @@ const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f";
 // Coverage - Specific (Curve exmaple)
 const coveredProtocolAddr = "0xc89432064d7cb658be730498dc07f1d850d6a867"; // Protocol.sol
 const balPoolAddrDaiClaim = "0x51a370f47a2def11e38ec529706cde52e7d4a333";
+const balPoolAddrDaiNoClaim = "0xd9b92e84b9f96267bf548cfe3a3ae21773872138";
 const coverageExpirationTime = 1622419200; // https://www.epochconverter.com/
 
 // Only Required For Testing
@@ -19,10 +20,10 @@ const noClaimAddr = "0x1f8aa31e569fcf22e21eb124fdd46df1e990c36e"; // (Curve exma
 let balancerWethDai;
 
 // Coverage Provider Contract
-let coverageProvider;
+let arbysMenu;
 
 // balances
-let daiAmount = 1000;
+let daiAmount = 50000;
 let balanceDai;
 let balanceClaim;
 let balanceNoClaim;
@@ -40,9 +41,9 @@ describe("### Acquire DAI", function() {
     balancerWethDai = await BalancerSwap.deploy(balPoolAddrDaiWeth,daiAddr,wethAddr);
     await balancerWethDai.deployed();
 
-    const CoverageProvider = await ethers.getContractFactory("CoverageProvider");
-    coverageProvider = await CoverageProvider.deploy(protocolFactory,daiAddr);
-    await coverageProvider.deployed();
+    const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
+    arbysMenu = await ArbysMenu.deploy(protocolFactory,daiAddr);
+    await arbysMenu.deployed();
 
     const ERC20_DAI = await ethers.getContractFactory('ERC20');
     dai = ERC20_DAI.attach(daiAddr);
@@ -57,7 +58,7 @@ describe("### Acquire DAI", function() {
   });
 
   it("should allow to swap ETH for DAI via Balancer (ETH - WETH - DAI)", async function() {
-    await balancerWethDai.pay(daiAmount, {value: ethers.utils.parseEther("5")});
+    await balancerWethDai.pay(daiAmount, {value: ethers.utils.parseEther("1000")});
     balanceDai = await dai.balanceOf(deployer.getAddress());
     assert.equal(ethers.utils.formatEther(balanceDai), ethers.utils.formatEther(daiAmount));
     console.log("Initial DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
@@ -66,17 +67,33 @@ describe("### Acquire DAI", function() {
 
 describe("### Provide Coverage: Mint NOCLAIM / CLAM and sell CLAIM", () => {
   it("should allow minting CLAIM / NOCLAIM and selling CLAIM", async function() {
-    const txApprove = await dai.approve(coverageProvider.address, daiAmount);
-    await txApprove.wait();
+    const txApprove1 = await dai.approve(arbysMenu.address, daiAmount);
+    await txApprove1.wait();
 
-    const txMint = await coverageProvider.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmount);
-    await txMint.wait();
+    const txCp = await arbysMenu.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmount);
+    await txCp.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
     balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
     balanceDai = await dai.balanceOf(deployer.getAddress());
-    assert.equal(ethers.utils.formatEther(balanceNoClaim), "1000.0");
+    assert.equal(ethers.utils.formatEther(balanceNoClaim), "50000.0");
     assert.equal(ethers.utils.formatEther(balanceClaim), "0.0");
+    console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
+    console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+  });
+});
+
+describe("### Execute Arbitrage", () => {
+  it("should take advantage of arbitrage opportunity", async function() {
+    const txApprove2 = await dai.approve(arbysMenu.address, daiAmount);
+    await txApprove2.wait();
+
+    const txArby = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, balanceDai);
+    await txArby.wait();
+
+    balanceClaim = await claim.balanceOf(deployer.getAddress());
+    balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
+    balanceDai = await dai.balanceOf(deployer.getAddress());
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
   });
