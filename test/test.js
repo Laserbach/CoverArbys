@@ -23,7 +23,7 @@ let balancerWethDai;
 let arbysMenu;
 
 // balances
-let daiAmount = 50000;
+let daiAmount = 1;
 let balanceDai;
 let balanceClaim;
 let balanceNoClaim;
@@ -76,7 +76,7 @@ describe("### Provide Coverage: Mint NOCLAIM / CLAM and sell CLAIM", () => {
     balanceClaim = await claim.balanceOf(deployer.getAddress());
     balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
     balanceDai = await dai.balanceOf(deployer.getAddress());
-    assert.equal(ethers.utils.formatEther(balanceNoClaim), "50000.0");
+    assert.equal(ethers.utils.formatEther(balanceNoClaim), "1.0");
     assert.equal(ethers.utils.formatEther(balanceClaim), "0.0");
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());

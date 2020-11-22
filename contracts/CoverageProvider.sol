@@ -84,7 +84,7 @@ contract ArbysMenu {
     function provideCoverage(IProtocol _protocol, IBalancerPool _claimPool, uint48 _expiration, uint256 _daiAmount) external {
       daiToken.transferFrom(msg.sender, address(this), _daiAmount);
       if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), _daiAmount);
+        daiToken.approve(address(_protocol), uint256(-1));
       }
       _protocol.addCover(address(daiToken), _expiration, _daiAmount);
 
@@ -104,7 +104,7 @@ contract ArbysMenu {
     function arbitrageSell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _daiAmount) external {
       daiToken.transferFrom(msg.sender, address(this), _daiAmount);
       if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), _daiAmount);
+        daiToken.approve(address(_protocol), uint256(-1));
       }
       _protocol.addCover(address(daiToken), _expiration, _daiAmount);
 
@@ -121,14 +121,14 @@ contract ArbysMenu {
 
     function _swapTokenForDai(IBalancerPool _bPool, IERC20 token, uint _sellAmount) private {
         if (token.allowance(address(this), address(_bPool)) < _sellAmount) {
-          token.approve(address(_bPool), _sellAmount);
+          token.approve(address(_bPool), uint256(-1));
         }
         IBalancerPool(_bPool).swapExactAmountIn(
             address(token),
             _sellAmount,
             address(daiToken),
             0, // minAmountOut, set to 0 -> sell no matter how low the price of CLAIM tokens are
-            2**256 - 1 // maxPrice, set to max -> accept any swap prices
+            uint256(-1) // maxPrice, set to max -> accept any swap prices
         );
     }
 
