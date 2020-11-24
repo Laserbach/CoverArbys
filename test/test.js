@@ -77,6 +77,8 @@ describe("### Execute Arbitrage Sell", () => {
     let txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
     await txApprove.wait();
 
+    let calcArbySell = await arbysMenu.calcArbySell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount);
+
     let tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount);
     await tx.wait();
 
@@ -85,6 +87,7 @@ describe("### Execute Arbitrage Sell", () => {
     balanceDai = await dai.balanceOf(deployer.getAddress());
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+    console.log("Calculated Arby: " + (ethers.utils.formatEther(calcArbySell)-ethers.utils.formatEther(daiArbySellAmount)).toString());
   });
 });
 
@@ -132,6 +135,8 @@ describe("### Execute Arbitrage Buy", () => {
     txApprove = await dai.approve(arbysMenu.address, daiArbyBuyAmount);
     await txApprove.wait();
 
+    let calcArbyBuy = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount);
+
     tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount);
     await tx.wait();
 
@@ -140,5 +145,6 @@ describe("### Execute Arbitrage Buy", () => {
     balanceDai = await dai.balanceOf(deployer.getAddress());
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+    console.log("Calculated Arby: " + (ethers.utils.formatEther(daiArbyBuyAmount) - ethers.utils.formatEther(calcArbyBuy)).toString());
   });
 });

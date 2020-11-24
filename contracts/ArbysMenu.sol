@@ -29,6 +29,11 @@ interface ICover {
 interface IBalancerPool {
     function swapExactAmountIn(address, uint, address, uint, uint) external returns (uint, uint);
     function swapExactAmountOut(address, uint, address, uint, uint) external returns (uint, uint);
+    function calcOutGivenIn(uint, uint, uint, uint, uint, uint) external pure returns (uint);
+    function calcInGivenOut(uint, uint, uint, uint, uint, uint) external pure returns (uint);
+    function getBalance(address) external view returns (uint);
+    function getSwapFee() external view returns (uint);
+    function getNormalizedWeight(address) external view returns (uint);
 }
 
 contract ArbysMenu {
@@ -149,6 +154,52 @@ contract ArbysMenu {
             _buyAmount,
             uint256(-1) // maxPrice, set to max -> accept any swap prices
             );
+    }
+
+    function calcArbySell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _sellAmount) external view returns(uint) {
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
+
+      uint daiFromSellingClaim = IBalancerPool(_claimPool).calcOutGivenIn(
+        IBalancerPool(_claimPool).getBalance(claimTokenAddr),
+        IBalancerPool(_claimPool).getNormalizedWeight(claimTokenAddr),
+        IBalancerPool(_claimPool).getBalance(address(daiToken)),
+        IBalancerPool(_claimPool).getNormalizedWeight(address(daiToken)),
+        _sellAmount,
+        IBalancerPool(_claimPool).getSwapFee());
+
+      uint daiFromSellingNoClaim = IBalancerPool(_noclaimPool).calcOutGivenIn(
+        IBalancerPool(_noclaimPool).getBalance(noclaimTokenAddr),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(noclaimTokenAddr),
+        IBalancerPool(_noclaimPool).getBalance(address(daiToken)),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(address(daiToken)),
+        _sellAmount,
+        IBalancerPool(_noclaimPool).getSwapFee());
+
+      return (daiFromSellingClaim + daiFromSellingNoClaim);
+    }
+
+    function calcArbyBuy(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _buyAmount) external view returns(uint) {
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
+
+      uint daiCostClaim = IBalancerPool(_claimPool).calcInGivenOut(
+        IBalancerPool(_claimPool).getBalance(address(daiToken)),
+        IBalancerPool(_claimPool).getNormalizedWeight(address(daiToken)),
+        IBalancerPool(_claimPool).getBalance(claimTokenAddr),
+        IBalancerPool(_claimPool).getNormalizedWeight(claimTokenAddr),
+        _buyAmount,
+        IBalancerPool(_claimPool).getSwapFee());
+
+      uint daiCostNoClaim = IBalancerPool(_noclaimPool).calcInGivenOut(
+        IBalancerPool(_noclaimPool).getBalance(address(daiToken)),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(address(daiToken)),
+        IBalancerPool(_noclaimPool).getBalance(noclaimTokenAddr),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(noclaimTokenAddr),
+        _buyAmount,
+        IBalancerPool(_noclaimPool).getSwapFee());
+
+      return (daiCostClaim + daiCostNoClaim);
     }
 
     receive() external payable {}
