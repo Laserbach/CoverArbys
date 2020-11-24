@@ -24,7 +24,12 @@ let balancerWethDai;
 let arbysMenu;
 
 // balances
-let daiAmount = 1;
+let daiAmountMint = 3000;
+let daiAmountCp = 1000;
+let daiAmountPr = 1000;
+let daiArbyBuyAmount = 10;
+let daiArbySellAmount = 10;
+
 let balanceDai;
 let balanceClaim;
 let balanceNoClaim;
@@ -54,43 +59,81 @@ describe("### Acquire DAI", function() {
 
     const ERC20_NOCLAIM = await ethers.getContractFactory('ERC20');
     noClaim = ERC20_NOCLAIM.attach(noClaimAddr);
-
-    daiAmount = ethers.utils.parseEther(daiAmount.toString());
   });
 
   it("should allow to swap ETH for DAI via Balancer (ETH - WETH - DAI)", async function() {
-    await balancerWethDai.pay(daiAmount, {value: ethers.utils.parseEther("1000")});
+    daiAmountMint = ethers.utils.parseEther(daiAmountMint.toString());
+
+    await balancerWethDai.pay(daiAmountMint, {value: ethers.utils.parseEther("100")});
     balanceDai = await dai.balanceOf(deployer.getAddress());
-    assert.equal(ethers.utils.formatEther(balanceDai), ethers.utils.formatEther(daiAmount));
+    assert.equal(ethers.utils.formatEther(balanceDai), ethers.utils.formatEther(daiAmountMint));
     console.log("Initial DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+  });
+});
+
+describe("### Execute Arbitrage Sell", () => {
+  it("should take advantage of arbitrage opportunity", async function() {
+    daiArbySellAmount = ethers.utils.parseEther(daiArbySellAmount.toString());
+    let txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
+    await txApprove.wait();
+
+    let tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount);
+    await tx.wait();
+
+    balanceClaim = await claim.balanceOf(deployer.getAddress());
+    balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
+    balanceDai = await dai.balanceOf(deployer.getAddress());
+    console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
+    console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
   });
 });
 
 describe("### Provide Coverage: Mint NOCLAIM / CLAM and sell CLAIM", () => {
   it("should allow minting CLAIM / NOCLAIM and selling CLAIM", async function() {
-    const txApprove1 = await dai.approve(arbysMenu.address, daiAmount);
-    await txApprove1.wait();
+    daiAmountCp = ethers.utils.parseEther(daiAmountCp.toString());
+    txApprove = await dai.approve(arbysMenu.address, daiAmountCp);
+    await txApprove.wait();
 
-    const txCp = await arbysMenu.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmount);
-    await txCp.wait();
+    tx = await arbysMenu.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmountCp);
+    await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
     balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
     balanceDai = await dai.balanceOf(deployer.getAddress());
-    assert.equal(ethers.utils.formatEther(balanceNoClaim), "1.0");
+    assert.equal(ethers.utils.formatEther(balanceNoClaim), "1000.0");
     assert.equal(ethers.utils.formatEther(balanceClaim), "0.0");
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
   });
 });
 
-describe("### Execute Arbitrage", () => {
-  it("should take advantage of arbitrage opportunity", async function() {
-    const txApprove2 = await dai.approve(arbysMenu.address, daiAmount);
-    await txApprove2.wait();
+describe("### Provide NOCLAIM: Mint NOCLAIM / CLAM and sell NOCLAIM", () => {
+  it("should allow minting CLAIM / NOCLAIM and selling NOCLAIM", async function() {
+    daiAmountPr = ethers.utils.parseEther(daiAmountPr.toString());
+    txApprove = await dai.approve(arbysMenu.address, daiAmountPr);
+    await txApprove.wait();
 
-    const txArby = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, balanceDai);
-    await txArby.wait();
+    tx = await arbysMenu.shortNoclaim(coveredProtocolAddr, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountPr);
+    await tx.wait();
+
+    balanceClaim = await claim.balanceOf(deployer.getAddress());
+    balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
+    balanceDai = await dai.balanceOf(deployer.getAddress());
+    assert.equal(ethers.utils.formatEther(balanceNoClaim), "1000.0");
+    assert.equal(ethers.utils.formatEther(balanceClaim), "1000.0");
+    console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
+    console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+  });
+});
+
+describe("### Execute Arbitrage Buy", () => {
+  it("should take advantage of arbitrage opportunity", async function() {
+    daiArbyBuyAmount = ethers.utils.parseEther(daiArbyBuyAmount.toString());
+    txApprove = await dai.approve(arbysMenu.address, daiArbyBuyAmount);
+    await txApprove.wait();
+
+    tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount);
+    await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
     balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());

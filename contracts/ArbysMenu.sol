@@ -68,7 +68,7 @@ contract ArbysMenu {
     }
 
     // Mint CLAIM / NOCLAIM , sell NOCLAIM , return DAI premium + CLAIM
-    function pullRug(IProtocol _protocol, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _daiAmount) external {
+    function shortNoclaim(IProtocol _protocol, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _daiAmount) external {
       daiToken.transferFrom(msg.sender, address(this), _daiAmount);
       if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
         daiToken.approve(address(_protocol), uint256(-1));
@@ -140,11 +140,11 @@ contract ArbysMenu {
 
     function _swapDaiForToken(IBalancerPool _bPool, IERC20 token, uint256 _buyAmount) private {
         if (daiToken.allowance(address(this), address(_bPool)) < _buyAmount) {
-          token.approve(address(_bPool), uint256(-1));
+          daiToken.approve(address(_bPool), uint256(-1));
         }
         IBalancerPool(_bPool).swapExactAmountOut(
             address(daiToken),
-            uint256(-1), // maxAmountIn, set to max -> use all sent ETH
+            uint256(-1), // maxAmountIn, set to max -> use all sent DAI
             address(token),
             _buyAmount,
             uint256(-1) // maxPrice, set to max -> accept any swap prices
