@@ -2,11 +2,11 @@ const { assert } = require("chai");
 
 // Cover Protocol
 const protocolFactory = "0xedfC81Bf63527337cD2193925f9C0cF2D537AccA";
-const cover = "0xfBc262fcecC125cAfF6E3bff2A68967109F2fadb"; // Cover.sol
 const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f";
 
 // Coverage - Specific (Curve exmaple)
 const coveredProtocolAddr = "0xc89432064d7cb658be730498dc07f1d850d6a867"; // Protocol.sol
+const cover = "0x5104f23653df6695D9d2B91c952F47F9ffbDE744"; // Cover.sol
 const balPoolAddrDaiClaim = "0x51a370f47a2def11e38ec529706cde52e7d4a333";
 const balPoolAddrDaiNoClaim = "0xd9b92e84b9f96267bf548cfe3a3ae21773872138";
 const coverageExpirationTime = 1622419200; // https://www.epochconverter.com/
