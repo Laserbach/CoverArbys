@@ -42,164 +42,162 @@ contract ArbysMenu {
 
     // Initialize, called once
     constructor (
-      IProtocolFactory _factory,
-      IERC20 daiToken_
+      IProtocolFactory _factory
     )
       public
     {
       factory = _factory;
-      daiToken = daiToken_;
     }
 
     // Mint CLAIM / NOCLAIM , sell CLAIM , return DAI premium + NOCLAIM
-    function provideCoverage(IProtocol _protocol, IBalancerPool _claimPool, uint48 _expiration, uint256 _daiAmount) external {
-      daiToken.transferFrom(msg.sender, address(this), _daiAmount);
-      if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), uint256(-1));
+    function provideCoverage(IProtocol _protocol, IBalancerPool _claimPool, uint48 _expiration, uint256 _collateralAmount, address _collateral) external {
+      IERC20(_collateral).transferFrom(msg.sender, address(this), _collateralAmount);
+      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+        IERC20(_collateral).approve(address(_protocol), uint256(-1));
       }
-      _protocol.addCover(address(daiToken), _expiration, _daiAmount);
+      _protocol.addCover(_collateral, _expiration, _collateralAmount);
 
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
 
       IERC20 claimToken =  IERC20(claimTokenAddr);
       IERC20 noClaimToken =  IERC20(noclaimTokenAddr);
 
-      _swapTokenForDai(_claimPool, claimToken, _daiAmount);
+      _swapTokenForCollateral(_claimPool, claimToken, _collateralAmount, IERC20(_collateral));
 
-      uint256 daiAmount = daiToken.balanceOf(address(this));
-      require(daiToken.transfer(msg.sender, daiAmount), "ERR_TRANSFER_FAILED");
-      require(noClaimToken.transfer(msg.sender, _daiAmount), "ERR_TRANSFER_FAILED");
+      uint256 collateralAmount = IERC20(_collateral).balanceOf(address(this));
+      require(IERC20(_collateral).transfer(msg.sender, collateralAmount), "ERR_TRANSFER_FAILED");
+      require(noClaimToken.transfer(msg.sender, _collateralAmount), "ERR_TRANSFER_FAILED");
     }
 
     // Mint CLAIM / NOCLAIM , sell NOCLAIM , return DAI premium + CLAIM
-    function shortNoclaim(IProtocol _protocol, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _daiAmount) external {
-      daiToken.transferFrom(msg.sender, address(this), _daiAmount);
-      if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), uint256(-1));
+    function shortNoclaim(IProtocol _protocol, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _collateralAmount, address _collateral) external {
+      IERC20(_collateral).transferFrom(msg.sender, address(this), _collateralAmount);
+      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+        IERC20(_collateral).approve(address(_protocol), uint256(-1));
       }
-      _protocol.addCover(address(daiToken), _expiration, _daiAmount);
+      _protocol.addCover(_collateral, _expiration, _collateralAmount);
 
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
 
       IERC20 claimToken =  IERC20(claimTokenAddr);
       IERC20 noClaimToken =  IERC20(noclaimTokenAddr);
 
-      _swapTokenForDai(_noclaimPool, noClaimToken, _daiAmount);
+      _swapTokenForCollateral(_noclaimPool, noClaimToken, _collateralAmount, IERC20(_collateral));
 
-      uint256 daiAmount = daiToken.balanceOf(address(this));
-      require(daiToken.transfer(msg.sender, daiAmount), "ERR_TRANSFER_FAILED");
-      require(claimToken.transfer(msg.sender, _daiAmount), "ERR_TRANSFER_FAILED");
+      uint256 collateralAmount = IERC20(_collateral).balanceOf(address(this));
+      require(IERC20(_collateral).transfer(msg.sender, collateralAmount), "ERR_TRANSFER_FAILED");
+      require(claimToken.transfer(msg.sender, _collateralAmount), "ERR_TRANSFER_FAILED");
     }
 
-    function arbitrageSell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _daiAmount) external {
-      daiToken.transferFrom(msg.sender, address(this), _daiAmount);
-      if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), uint256(-1));
+    function arbitrageSell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _collateralAmount, address _collateral) external {
+      IERC20(_collateral).transferFrom(msg.sender, address(this), _collateralAmount);
+      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+        IERC20(_collateral).approve(address(_protocol), uint256(-1));
       }
-      _protocol.addCover(address(daiToken), _expiration, _daiAmount);
+      _protocol.addCover(_collateral, _expiration, _collateralAmount);
 
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
 
-      _swapTokenForDai(_noclaimPool, IERC20(noclaimTokenAddr), _daiAmount);
-      _swapTokenForDai(_claimPool, IERC20(claimTokenAddr), _daiAmount);
+      _swapTokenForCollateral(_noclaimPool, IERC20(noclaimTokenAddr), _collateralAmount, IERC20(_collateral));
+      _swapTokenForCollateral(_claimPool, IERC20(claimTokenAddr), _collateralAmount, IERC20(_collateral));
 
-      uint256 bal = daiToken.balanceOf(address(this));
-      require(bal > _daiAmount, "No arbys");
-      require(daiToken.transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
+      uint256 bal = IERC20(_collateral).balanceOf(address(this));
+      require(bal > _collateralAmount, "No arbys");
+      require(IERC20(_collateral).transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
     }
 
-    function arbitrageBuy(IProtocol _protocol, ICover _cover, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _daiAmount) external {
-      daiToken.transferFrom(msg.sender, address(this), _daiAmount);
-      if (daiToken.allowance(address(this), address(_protocol)) < _daiAmount) {
-        daiToken.approve(address(_protocol), uint256(-1));
+    function arbitrageBuy(IProtocol _protocol, ICover _cover, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _collateralAmount, address _collateral) external {
+      IERC20(_collateral).transferFrom(msg.sender, address(this), _collateralAmount);
+      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+        IERC20(_collateral).approve(address(_protocol), uint256(-1));
       }
 
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
 
-      _swapDaiForToken(_noclaimPool, IERC20(noclaimTokenAddr), _daiAmount);
-      _swapDaiForToken(_claimPool, IERC20(claimTokenAddr), _daiAmount);
+      _swapCollateralForToken(_noclaimPool, IERC20(noclaimTokenAddr), _collateralAmount, IERC20(_collateral));
+      _swapCollateralForToken(_claimPool, IERC20(claimTokenAddr), _collateralAmount, IERC20(_collateral));
 
-      _cover.redeemCollateral(_daiAmount);
+      _cover.redeemCollateral(_collateralAmount);
 
-      uint256 bal = daiToken.balanceOf(address(this));
-      require(bal > _daiAmount, "No arbys");
-      require(daiToken.transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
+      uint256 bal = IERC20(_collateral).balanceOf(address(this));
+      require(bal > _collateralAmount, "No arbys");
+      require(IERC20(_collateral).transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
     }
 
-    function _swapTokenForDai(IBalancerPool _bPool, IERC20 token, uint256 _sellAmount) private {
-        if (token.allowance(address(this), address(_bPool)) < _sellAmount) {
-          token.approve(address(_bPool), uint256(-1));
+    function _swapTokenForCollateral(IBalancerPool _bPool, IERC20 _token, uint256 _sellAmount, IERC20 _collateral) private {
+        if (_token.allowance(address(this), address(_bPool)) < _sellAmount) {
+          _token.approve(address(_bPool), uint256(-1));
         }
         IBalancerPool(_bPool).swapExactAmountIn(
-            address(token),
+            address(_token),
             _sellAmount,
-            address(daiToken),
+            address(_collateral),
             0, // minAmountOut, set to 0 -> sell no matter how low the price of CLAIM tokens are
             uint256(-1) // maxPrice, set to max -> accept any swap prices
         );
     }
 
-    function _swapDaiForToken(IBalancerPool _bPool, IERC20 token, uint256 _buyAmount) private {
-        if (daiToken.allowance(address(this), address(_bPool)) < _buyAmount) {
-          daiToken.approve(address(_bPool), uint256(-1));
+    function _swapCollateralForToken(IBalancerPool _bPool, IERC20 _token, uint256 _buyAmount, IERC20 _collateral) private {
+        if (_collateral.allowance(address(this), address(_bPool)) < _buyAmount) {
+          _collateral.approve(address(_bPool), uint256(-1));
         }
         IBalancerPool(_bPool).swapExactAmountOut(
-            address(daiToken),
+            address(_collateral),
             uint256(-1), // maxAmountIn, set to max -> use all sent DAI
-            address(token),
+            address(_token),
             _buyAmount,
             uint256(-1) // maxPrice, set to max -> accept any swap prices
             );
     }
 
-    function calcArbySell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _sellAmount) external view returns(uint) {
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
+    function calcArbySell(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _sellAmount, address _collateral) external view returns(uint256) {
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
 
-      uint daiFromSellingClaim = IBalancerPool(_claimPool).calcOutGivenIn(
+      uint256 collateralFromSellingClaim = IBalancerPool(_claimPool).calcOutGivenIn(
         IBalancerPool(_claimPool).getBalance(claimTokenAddr),
         IBalancerPool(_claimPool).getNormalizedWeight(claimTokenAddr),
-        IBalancerPool(_claimPool).getBalance(address(daiToken)),
-        IBalancerPool(_claimPool).getNormalizedWeight(address(daiToken)),
+        IBalancerPool(_claimPool).getBalance(_collateral),
+        IBalancerPool(_claimPool).getNormalizedWeight(_collateral),
         _sellAmount,
         IBalancerPool(_claimPool).getSwapFee());
 
-      uint daiFromSellingNoClaim = IBalancerPool(_noclaimPool).calcOutGivenIn(
+      uint256 daiFromSellingNoClaim = IBalancerPool(_noclaimPool).calcOutGivenIn(
         IBalancerPool(_noclaimPool).getBalance(noclaimTokenAddr),
         IBalancerPool(_noclaimPool).getNormalizedWeight(noclaimTokenAddr),
-        IBalancerPool(_noclaimPool).getBalance(address(daiToken)),
-        IBalancerPool(_noclaimPool).getNormalizedWeight(address(daiToken)),
+        IBalancerPool(_noclaimPool).getBalance(_collateral),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(_collateral),
         _sellAmount,
         IBalancerPool(_noclaimPool).getSwapFee());
 
-      return (daiFromSellingClaim + daiFromSellingNoClaim);
+      return (collateralFromSellingClaim + daiFromSellingNoClaim);
     }
 
-    function calcArbyBuy(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint _buyAmount) external view returns(uint) {
-      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), true);
-      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, address(daiToken), _protocol.claimNonce(), false);
+    function calcArbyBuy(IProtocol _protocol, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _buyAmount, address _collateral) external view returns(uint256) {
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
 
-      uint daiCostClaim = IBalancerPool(_claimPool).calcInGivenOut(
-        IBalancerPool(_claimPool).getBalance(address(daiToken)),
-        IBalancerPool(_claimPool).getNormalizedWeight(address(daiToken)),
+      uint256 collateralCostClaim = IBalancerPool(_claimPool).calcInGivenOut(
+        IBalancerPool(_claimPool).getBalance(_collateral),
+        IBalancerPool(_claimPool).getNormalizedWeight(_collateral),
         IBalancerPool(_claimPool).getBalance(claimTokenAddr),
         IBalancerPool(_claimPool).getNormalizedWeight(claimTokenAddr),
         _buyAmount,
         IBalancerPool(_claimPool).getSwapFee());
 
-      uint daiCostNoClaim = IBalancerPool(_noclaimPool).calcInGivenOut(
-        IBalancerPool(_noclaimPool).getBalance(address(daiToken)),
-        IBalancerPool(_noclaimPool).getNormalizedWeight(address(daiToken)),
+      uint256 collateralCostNoClaim = IBalancerPool(_noclaimPool).calcInGivenOut(
+        IBalancerPool(_noclaimPool).getBalance(_collateral),
+        IBalancerPool(_noclaimPool).getNormalizedWeight(_collateral),
         IBalancerPool(_noclaimPool).getBalance(noclaimTokenAddr),
         IBalancerPool(_noclaimPool).getNormalizedWeight(noclaimTokenAddr),
         _buyAmount,
         IBalancerPool(_noclaimPool).getSwapFee());
 
-      return (daiCostClaim + daiCostNoClaim);
+      return (collateralCostClaim + collateralCostNoClaim);
     }
 
     receive() external payable {}

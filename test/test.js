@@ -2,7 +2,7 @@ const { assert } = require("chai");
 
 // Cover Protocol
 const protocolFactory = "0xedfC81Bf63527337cD2193925f9C0cF2D537AccA";
-const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f";
+const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f"; // collateral
 
 // Coverage - Specific (Curve exmaple)
 const coveredProtocolAddr = "0xc89432064d7cb658be730498dc07f1d850d6a867"; // Protocol.sol
@@ -48,7 +48,7 @@ describe("### Acquire DAI", function() {
     await balancerWethDai.deployed();
 
     const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
-    arbysMenu = await ArbysMenu.deploy(protocolFactory,daiAddr);
+    arbysMenu = await ArbysMenu.deploy(protocolFactory);
     await arbysMenu.deployed();
 
     const ERC20_DAI = await ethers.getContractFactory('ERC20');
@@ -77,9 +77,9 @@ describe("### Execute Arbitrage Sell", () => {
     let txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
     await txApprove.wait();
 
-    let calcArbySell = await arbysMenu.calcArbySell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount);
+    let calcArbySell = await arbysMenu.calcArbySell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount, daiAddr);
 
-    let tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount);
+    let tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount, daiAddr);
     await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
@@ -97,7 +97,7 @@ describe("### Provide Coverage: Mint NOCLAIM / CLAM and sell CLAIM", () => {
     txApprove = await dai.approve(arbysMenu.address, daiAmountCp);
     await txApprove.wait();
 
-    tx = await arbysMenu.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmountCp);
+    tx = await arbysMenu.provideCoverage(coveredProtocolAddr, balPoolAddrDaiClaim, coverageExpirationTime, daiAmountCp, daiAddr);
     await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
@@ -116,7 +116,7 @@ describe("### Provide NOCLAIM: Mint NOCLAIM / CLAM and sell NOCLAIM", () => {
     txApprove = await dai.approve(arbysMenu.address, daiAmountPr);
     await txApprove.wait();
 
-    tx = await arbysMenu.shortNoclaim(coveredProtocolAddr, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountPr);
+    tx = await arbysMenu.shortNoclaim(coveredProtocolAddr, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountPr, daiAddr);
     await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
@@ -135,9 +135,9 @@ describe("### Execute Arbitrage Buy", () => {
     txApprove = await dai.approve(arbysMenu.address, daiArbyBuyAmount);
     await txApprove.wait();
 
-    let calcArbyBuy = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount);
+    let calcArbyBuy = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
 
-    tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount);
+    tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
     await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
