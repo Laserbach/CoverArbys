@@ -1,5 +1,8 @@
 const { assert } = require("chai");
 
+// Arbys ArbysMenu
+const arbysMenuAddr = "0xfc519C02088BB473c798efa22ef15bD95c26210f";
+
 // Cover Protocol
 const protocolFactory = "0xedfC81Bf63527337cD2193925f9C0cF2D537AccA";
 const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f"; // collateral
@@ -28,6 +31,7 @@ let daiAmountMint = 3000;
 let daiAmountCp = 1000;
 let daiAmountPr = 1000;
 let daiArbyBuyAmount = 10;
+let daiArbyBuyAmountLarge = 10000;
 let daiArbySellAmount = 10;
 
 let balanceDai;
@@ -47,9 +51,12 @@ describe("### Acquire DAI", function() {
     balancerWethDai = await BalancerSwap.deploy(balPoolAddrDaiWeth,daiAddr,wethAddr);
     await balancerWethDai.deployed();
 
+    // const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
+    // arbysMenu = await ArbysMenu.deploy(protocolFactory);
+    // await arbysMenu.deployed();
+
     const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
-    arbysMenu = await ArbysMenu.deploy(protocolFactory);
-    await arbysMenu.deployed();
+    arbysMenu = ArbysMenu.attach(arbysMenuAddr);
 
     const ERC20_DAI = await ethers.getContractFactory('ERC20');
     dai = ERC20_DAI.attach(daiAddr);
@@ -132,10 +139,12 @@ describe("### Provide NOCLAIM: Mint NOCLAIM / CLAM and sell NOCLAIM", () => {
 describe("### Execute Arbitrage Buy", () => {
   it("should take advantage of arbitrage opportunity", async function() {
     daiArbyBuyAmount = ethers.utils.parseEther(daiArbyBuyAmount.toString());
-    txApprove = await dai.approve(arbysMenu.address, daiArbyBuyAmount);
+    daiArbyBuyAmountLarge = ethers.utils.parseEther(daiArbyBuyAmountLarge.toString());
+    txApprove = await dai.approve(arbysMenu.address, daiArbyBuyAmountLarge);
     await txApprove.wait();
 
     let calcArbyBuy = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
+    let calcArbyBuyLarge = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmountLarge, daiAddr);
 
     tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
     await tx.wait();
@@ -146,5 +155,6 @@ describe("### Execute Arbitrage Buy", () => {
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
     console.log("Calculated Arby: " + (ethers.utils.formatEther(daiArbyBuyAmount) - ethers.utils.formatEther(calcArbyBuy)).toString());
+    console.log("Calculated Arby Large: " + (ethers.utils.formatEther(daiArbyBuyAmountLarge) - ethers.utils.formatEther(calcArbyBuyLarge)).toString());
   });
 });
