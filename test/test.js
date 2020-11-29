@@ -91,6 +91,7 @@ describe("### Market Maker: Use DAI to mint and provide liquidity", () => {
   it("should return pool stats", async function() {
 
     let [weightCollateral, weightToken, poolBalance, totalSupplyBpt, collateralAmountForGivenTokenAmount, tokenAddresses] = await coverMarketMaker.getPoolStats(balPoolAddrDaiClaim, claimAddr, ethers.utils.parseEther("1000"), daiAddr);
+    let [calcResult, calcBpt] = await coverMarketMaker.testingCalculations(balPoolAddrDaiClaim, daiAddr, claimAddr, ethers.utils.parseEther("500"));
 
     console.log("Normalized Collateral Weight: " + ethers.utils.formatEther(weightCollateral).toString());
     console.log("Normalized Token Weight: " + ethers.utils.formatEther(weightToken).toString());
@@ -99,30 +100,34 @@ describe("### Market Maker: Use DAI to mint and provide liquidity", () => {
     console.log("Total BPT Supply: " + ethers.utils.formatEther(totalSupplyBpt).toString());
     console.log("Token 1: " + tokenAddresses[0].toString());
     console.log("Token 2: " + tokenAddresses[1].toString());
+    console.log("Calculation Example: " + ethers.utils.formatEther(calcResult).toString());
+    console.log("Calculation Example Bpt: " + ethers.utils.formatEther(calcBpt).toString());
   });
 
   it("should mint coverage and deposit in balancer, receive BPT tokens back", async function() {
-  //   balanceDai = await dai.balanceOf(deployer.getAddress());
-  //   console.log("DAI balance before LPing: " + ethers.utils.formatEther(balanceDai).toString());
-  //
-  //   daiAmountLp = ethers.utils.parseEther("500");
-  //   let txApprove = await dai.approve(coverMarketMaker.address, daiAmountLp);
-  //   await txApprove.wait();
-  //
-  //   let tx = await coverMarketMaker.marketMaker(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountLp, daiAddr)
-  //
-  //   balanceDai = await dai.balanceOf(deployer.getAddress());
-  //   let balanceClaimBpt = await bptDaiClaim.balanceOf(deployer.getAddress());
-  //   let balanceNoClaimBpt = await bptDaiNoClaim.balanceOf(deployer.getAddress());
-  //
-  //   console.log("DAI balance after LPing: " + ethers.utils.formatEther(balanceDai).toString());
-  //   console.log("CLAIM-BPT balance: " + ethers.utils.formatEther(balanceDai).toString());
-  //   console.log("NOCLAIM-BPT balance: " + ethers.utils.formatEther(balanceDai).toString());
+    this.timeout(40000);
+    balanceDai = await dai.balanceOf(deployer.getAddress());
+    console.log("DAI balance before LPing: " + ethers.utils.formatEther(balanceDai).toString());
+
+    daiAmountLp = ethers.utils.parseEther("500");
+    let txApprove = await dai.approve(coverMarketMaker.address, daiAmountLp);
+    await txApprove.wait();
+
+    let tx = await coverMarketMaker.marketMaker(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountLp, daiAddr)
+
+    balanceDai = await dai.balanceOf(deployer.getAddress());
+    let balanceClaimBpt = await bptDaiClaim.balanceOf(deployer.getAddress());
+    let balanceNoClaimBpt = await bptDaiNoClaim.balanceOf(deployer.getAddress());
+
+    console.log("DAI balance after LPing: " + ethers.utils.formatEther(balanceDai).toString());
+    console.log("CLAIM-BPT balance: " + ethers.utils.formatEther(balanceClaimBpt).toString());
+    console.log("NOCLAIM-BPT balance: " + ethers.utils.formatEther(balanceNoClaimBpt).toString());
   });
 });
 
 describe("### Execute Arbitrage Sell", () => {
   it("should take advantage of arbitrage opportunity", async function() {
+    this.timeout(40000);
     daiArbySellAmount = ethers.utils.parseEther(daiArbySellAmount.toString());
     txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
     await txApprove.wait();
