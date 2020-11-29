@@ -10,7 +10,7 @@ const daiAddr = "0x6b175474e89094c44da98b954eedeac495271d0f"; // collateral
 // Coverage - Specific (Curve exmaple)
 const coveredProtocolAddr = "0xc89432064d7cb658be730498dc07f1d850d6a867"; // Protocol.sol
 const cover = "0x5104f23653df6695D9d2B91c952F47F9ffbDE744"; // Cover.sol
-const balPoolAddrDaiClaim = "0x51a370f47a2def11e38ec529706cde52e7d4a333";
+const balPoolAddrDaiClaim = "0xdfe5ead7bd050eb74009e7717000eeadcf0f18db";
 const balPoolAddrDaiNoClaim = "0xd9b92e84b9f96267bf548cfe3a3ae21773872138";
 const coverageExpirationTime = 1622419200; // https://www.epochconverter.com/
 
@@ -25,6 +25,7 @@ let balancerWethDai;
 
 // Coverage Provider Contract
 let arbysMenu;
+let coverMarketMaker;
 
 // balances
 let daiAmountMint = 3000;
@@ -42,6 +43,8 @@ let balanceNoClaim;
 let dai;
 let claim;
 let noClaim;
+let bptDaiClaim;
+let bptDaiNoClaim;
 
 describe("### Acquire DAI", function() {
   before(async () => {
@@ -51,9 +54,9 @@ describe("### Acquire DAI", function() {
     balancerWethDai = await BalancerSwap.deploy(balPoolAddrDaiWeth,daiAddr,wethAddr);
     await balancerWethDai.deployed();
 
-    // const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
-    // arbysMenu = await ArbysMenu.deploy(protocolFactory);
-    // await arbysMenu.deployed();
+    const CoverMarketMakers = await ethers.getContractFactory("CoverMarketMakers");
+    coverMarketMaker = await CoverMarketMakers.deploy(protocolFactory);
+    await coverMarketMaker.deployed();
 
     const ArbysMenu = await ethers.getContractFactory("ArbysMenu");
     arbysMenu = ArbysMenu.attach(arbysMenuAddr);
@@ -66,6 +69,12 @@ describe("### Acquire DAI", function() {
 
     const ERC20_NOCLAIM = await ethers.getContractFactory('ERC20');
     noClaim = ERC20_NOCLAIM.attach(noClaimAddr);
+
+    const ERC20_BPT_DAI_CLAIM = await ethers.getContractFactory('ERC20');
+    bptDaiClaim = ERC20_BPT_DAI_CLAIM.attach(balPoolAddrDaiClaim);
+
+    const ERC20_BPT_DAI_NOCLAIM = await ethers.getContractFactory('ERC20');
+    bptDaiNoClaim = ERC20_BPT_DAI_NOCLAIM.attach(balPoolAddrDaiNoClaim);
   });
 
   it("should allow to swap ETH for DAI via Balancer (ETH - WETH - DAI)", async function() {
@@ -78,15 +87,49 @@ describe("### Acquire DAI", function() {
   });
 });
 
+describe("### Market Maker: Use DAI to mint and provide liquidity", () => {
+  it("should return pool stats", async function() {
+
+    let [weightCollateral, weightToken, poolBalance, totalSupplyBpt, collateralAmountForGivenTokenAmount, tokenAddresses] = await coverMarketMaker.getPoolStats(balPoolAddrDaiClaim, claimAddr, ethers.utils.parseEther("1000"), daiAddr);
+
+    console.log("Normalized Collateral Weight: " + ethers.utils.formatEther(weightCollateral).toString());
+    console.log("Normalized Token Weight: " + ethers.utils.formatEther(weightToken).toString());
+    console.log("Amount of DAI to LP together with 1000 CLAIM: " + ethers.utils.formatEther(collateralAmountForGivenTokenAmount).toString());
+    console.log("Total Balance in Pool: " + ethers.utils.formatEther(poolBalance).toString());
+    console.log("Total BPT Supply: " + ethers.utils.formatEther(totalSupplyBpt).toString());
+    console.log("Token 1: " + tokenAddresses[0].toString());
+    console.log("Token 2: " + tokenAddresses[1].toString());
+  });
+
+  it("should mint coverage and deposit in balancer, receive BPT tokens back", async function() {
+  //   balanceDai = await dai.balanceOf(deployer.getAddress());
+  //   console.log("DAI balance before LPing: " + ethers.utils.formatEther(balanceDai).toString());
+  //
+  //   daiAmountLp = ethers.utils.parseEther("500");
+  //   let txApprove = await dai.approve(coverMarketMaker.address, daiAmountLp);
+  //   await txApprove.wait();
+  //
+  //   let tx = await coverMarketMaker.marketMaker(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountLp, daiAddr)
+  //
+  //   balanceDai = await dai.balanceOf(deployer.getAddress());
+  //   let balanceClaimBpt = await bptDaiClaim.balanceOf(deployer.getAddress());
+  //   let balanceNoClaimBpt = await bptDaiNoClaim.balanceOf(deployer.getAddress());
+  //
+  //   console.log("DAI balance after LPing: " + ethers.utils.formatEther(balanceDai).toString());
+  //   console.log("CLAIM-BPT balance: " + ethers.utils.formatEther(balanceDai).toString());
+  //   console.log("NOCLAIM-BPT balance: " + ethers.utils.formatEther(balanceDai).toString());
+  });
+});
+
 describe("### Execute Arbitrage Sell", () => {
   it("should take advantage of arbitrage opportunity", async function() {
     daiArbySellAmount = ethers.utils.parseEther(daiArbySellAmount.toString());
-    let txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
+    txApprove = await dai.approve(arbysMenu.address, daiArbySellAmount);
     await txApprove.wait();
 
     let calcArbySell = await arbysMenu.calcArbySell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount, daiAddr);
 
-    let tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount, daiAddr);
+    tx = await arbysMenu.arbitrageSell(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbySellAmount, daiAddr);
     await tx.wait();
 
     balanceClaim = await claim.balanceOf(deployer.getAddress());
@@ -144,6 +187,7 @@ describe("### Execute Arbitrage Buy", () => {
     await txApprove.wait();
 
     let calcArbyBuy = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
+    let calcArbyBuyMedium = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, ethers.utils.parseEther("1000"), daiAddr);
     let calcArbyBuyLarge = await arbysMenu.calcArbyBuy(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmountLarge, daiAddr);
 
     tx = await arbysMenu.arbitrageBuy(coveredProtocolAddr, cover, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiArbyBuyAmount, daiAddr);
@@ -155,6 +199,7 @@ describe("### Execute Arbitrage Buy", () => {
     console.log("CLAIM: " + ethers.utils.formatEther(balanceClaim).toString() + " and NOCLAIM: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
     console.log("Calculated Arby: " + (ethers.utils.formatEther(daiArbyBuyAmount) - ethers.utils.formatEther(calcArbyBuy)).toString());
+    console.log("Calculated Arby Medium: " + (1000 - ethers.utils.formatEther(calcArbyBuyMedium)).toString());
     console.log("Calculated Arby Large: " + (ethers.utils.formatEther(daiArbyBuyAmountLarge) - ethers.utils.formatEther(calcArbyBuyLarge)).toString());
   });
 });
