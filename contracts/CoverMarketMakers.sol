@@ -2,6 +2,8 @@
 
 pragma solidity 0.6.6;
 
+import "hardhat/console.sol";
+
 interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address recipient, uint256 amount) external returns (bool);
@@ -59,8 +61,9 @@ contract CoverMarketMakers {
       uint256 collateralToProvideClaimPool = mintAmount / ((1 ether) / _claimPool.getNormalizedWeight(_collateral));
       uint256 collateralToProvideNoClaimPool = mintAmount / ((1 ether) / _noclaimPool.getNormalizedWeight(_collateral));
 
-      _protocol.addCover(_collateral, _expiration, mintAmount);
+      require((IERC20(_collateral).balanceOf(address(this)) >= (mintAmount + collateralToProvideClaimPool + collateralToProvideNoClaimPool)), "ERR_COLLATERAL_AMOUNTS");
 
+      _protocol.addCover(_collateral, _expiration, mintAmount);
       _provideLiquidity(_claimPool, claimToken, mintAmount, IERC20(_collateral), collateralToProvideClaimPool);
       _provideLiquidity(_noclaimPool, noClaimToken, mintAmount, IERC20(_collateral), collateralToProvideNoClaimPool);
 
@@ -80,8 +83,9 @@ contract CoverMarketMakers {
         _collateral.approve(address(_bPool), uint256(-1));
       }
 
-      uint256 poolBalance = _bPool.getBalance(address(_token)) + _bPool.getBalance(address(_collateral));
-      uint256 bptAmount = 2400 ether;// _bPool.totalSupply() / ( poolBalance / (_tokenAmount+_collateralAmount) );
+      uint256 poolBalance = _bPool.getBalance(address(_token));
+      uint256 buffer = (1 ether * _tokenAmount) / 100 ether; // 1 % buffer
+      uint256 bptAmount = (_bPool.totalSupply() / ( poolBalance / (_tokenAmount - buffer) ));
 
       uint[] memory maxAmountsIn = new uint[](2);
       address[] memory tokenAddresses = new address[](2);
