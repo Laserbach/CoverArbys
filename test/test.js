@@ -91,7 +91,6 @@ describe("### Market Maker: Use DAI to mint and provide liquidity", () => {
   it("should return pool stats", async function() {
 
     let [weightCollateral, weightToken, poolBalance, totalSupplyBpt, collateralAmountForGivenTokenAmount, tokenAddresses] = await coverMarketMaker.getPoolStats(balPoolAddrDaiClaim, claimAddr, ethers.utils.parseEther("1000"), daiAddr);
-    let [calcResult, calcBpt] = await coverMarketMaker.testingCalculations(balPoolAddrDaiClaim, daiAddr, claimAddr, ethers.utils.parseEther("500"));
 
     console.log("Normalized Collateral Weight: " + ethers.utils.formatEther(weightCollateral).toString());
     console.log("Normalized Token Weight: " + ethers.utils.formatEther(weightToken).toString());
@@ -100,8 +99,6 @@ describe("### Market Maker: Use DAI to mint and provide liquidity", () => {
     console.log("Total BPT Supply: " + ethers.utils.formatEther(totalSupplyBpt).toString());
     console.log("Token 1: " + tokenAddresses[0].toString());
     console.log("Token 2: " + tokenAddresses[1].toString());
-    console.log("Calculation Example: " + ethers.utils.formatEther(calcResult).toString());
-    console.log("Calculation Example Bpt: " + ethers.utils.formatEther(calcBpt).toString());
   });
 
   it("should mint coverage and deposit in balancer, receive BPT tokens back", async function() {

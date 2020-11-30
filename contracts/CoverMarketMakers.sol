@@ -60,13 +60,14 @@ contract CoverMarketMakers {
 
       uint256 collateralToProvideClaimPool = mintAmount / ((1 ether) / _claimPool.getNormalizedWeight(_collateral));
       uint256 collateralToProvideNoClaimPool = mintAmount / ((1 ether) / _noclaimPool.getNormalizedWeight(_collateral));
-
       require((IERC20(_collateral).balanceOf(address(this)) >= (mintAmount + collateralToProvideClaimPool + collateralToProvideNoClaimPool)), "ERR_COLLATERAL_AMOUNTS");
+      console.log("DAI Balance befor: %s", IERC20(_collateral).balanceOf(address(this)));
 
       _protocol.addCover(_collateral, _expiration, mintAmount);
       _provideLiquidity(_claimPool, claimToken, mintAmount, IERC20(_collateral), collateralToProvideClaimPool);
       _provideLiquidity(_noclaimPool, noClaimToken, mintAmount, IERC20(_collateral), collateralToProvideNoClaimPool);
 
+      console.log("DAI Balance after: %s", IERC20(_collateral).balanceOf(address(this)));
       uint256 returnCollateralAmount = IERC20(_collateral).balanceOf(address(this));
       uint256 claimBptAmount =  IERC20(address(_claimPool)).balanceOf(address(this));
       uint256 noClaimBptAmount = IERC20(address(_noclaimPool)).balanceOf(address(this));
@@ -74,6 +75,8 @@ contract CoverMarketMakers {
       require(IERC20(address(_claimPool)).transfer(msg.sender, claimBptAmount), "ERR_TRANSFER_FAILED");
       require(IERC20(address(_noclaimPool)).transfer(msg.sender, noClaimBptAmount), "ERR_TRANSFER_FAILED");
     }
+
+    //function withdrawLiquidity()
 
     function _provideLiquidity(IBalancerPool _bPool, IERC20 _token, uint256 _tokenAmount, IERC20 _collateral, uint256 _collateralAmount) private {
       if (_token.allowance(address(this), address(_bPool)) < _tokenAmount) {
@@ -83,10 +86,9 @@ contract CoverMarketMakers {
         _collateral.approve(address(_bPool), uint256(-1));
       }
 
-      uint256 poolBalance = _bPool.getBalance(address(_token));
-      uint256 buffer = (1 ether * _tokenAmount) / 100 ether; // 1 % buffer
-      uint256 bptAmount = (_bPool.totalSupply() / ( poolBalance / (_tokenAmount - buffer) ));
-
+      uint256 poolBalance = _bPool.getBalance(address(_token)) + _bPool.getBalance(address(_collateral));
+      uint256 buffer = (1 ether * (_tokenAmount + _collateralAmount)) / 100 ether; // 1 % buffer
+      uint256 bptAmount = (_bPool.totalSupply() / ( poolBalance / (_tokenAmount + _collateralAmount - buffer) ));
       uint[] memory maxAmountsIn = new uint[](2);
       address[] memory tokenAddresses = new address[](2);
       tokenAddresses = _bPool.getFinalTokens();
@@ -115,18 +117,6 @@ contract CoverMarketMakers {
         _bPool.totalSupply(),
         collateralAmountForGivenTokenAmount,
         _bPool.getFinalTokens());
-    }
-
-    // for testing only
-    function testingCalculations(IBalancerPool _bPool, address _collateral,address _token, uint256 _amount) external view returns(uint256, uint256) {
-
-      uint256 mintAmount = (_amount / ( (1 ether) + _bPool.getNormalizedWeight(_collateral)) ) * (10**18);
-      uint256 collateralToProvideClaimPool = mintAmount / ((1 ether) / _bPool.getNormalizedWeight(_collateral));
-
-      uint256 poolBalance = _bPool.getBalance(address(_token)) + _bPool.getBalance(address(_collateral));
-      uint256 bptAmount = _bPool.totalSupply() / ( poolBalance / (mintAmount + collateralToProvideClaimPool) );
-
-      return (collateralToProvideClaimPool, bptAmount);
     }
 
     receive() external payable {}
