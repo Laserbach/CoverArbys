@@ -3,7 +3,7 @@ require('dotenv').config();
 require("@nomiclabs/hardhat-etherscan");
 
 module.exports = {
-  solidity: "0.6.6",
+  solidity: "0.7.5",
   networks: {
     hardhat: {
       forking: {

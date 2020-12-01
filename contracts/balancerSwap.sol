@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.6;
+pragma solidity ^0.7.5;
 
 interface PoolInterface {
     function swapExactAmountIn(address, uint, address, uint, uint) external returns (uint, uint);
@@ -21,7 +21,7 @@ contract BalancerSwap {
     TokenInterface public daiToken;
     TokenInterface public weth;
 
-    constructor(PoolInterface bPool_, TokenInterface daiToken_, TokenInterface weth_) public {
+    constructor(PoolInterface bPool_, TokenInterface daiToken_, TokenInterface weth_) {
         bPool = bPool_;
         daiToken = daiToken_;
         weth = weth_;

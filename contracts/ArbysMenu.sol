@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: No License
 
-pragma solidity 0.6.6;
+pragma solidity ^0.7.5;
 
 interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
@@ -40,11 +40,7 @@ contract ArbysMenu {
     IERC20 public daiToken;
 
     // Initialize, called once
-    constructor (
-      IProtocolFactory _factory
-    )
-      public
-    {
+    constructor (IProtocolFactory _factory) {
       factory = _factory;
     }
 
