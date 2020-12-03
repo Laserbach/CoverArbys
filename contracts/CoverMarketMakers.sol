@@ -2,7 +2,6 @@
 
 pragma solidity ^0.7.5;
 
-import "hardhat/console.sol";
 import "./utils/SafeMath.sol";
 import "./utils/SafeERC20.sol";
 
@@ -25,6 +24,11 @@ interface IBPool {
     function totalSupply() external view returns (uint);
     function getFinalTokens() external view returns (address[] memory tokens);
     function getSpotPriceSansFee(address tokenIn, address tokenOut) external view returns (uint spotPrice);
+    function getSpotPrice(address tokenIn, address tokenOut) external view returns (uint spotPrice);
+}
+
+interface ICover {
+  function redeemCollateral(uint256 _amount) external;
 }
 
 contract CoverMarketMakers {
@@ -45,26 +49,20 @@ contract CoverMarketMakers {
       IBPool _claimPool,
       IBPool _noclaimPool,
       uint48 _expiration,
-      uint256 _collateralAmount,
+      uint256 _mintAmount,
+      uint256 _collateraLpAmount,
       address _collateral
     ) external {
-      IERC20(_collateral).safeTransferFrom(msg.sender, address(this), _collateralAmount);
-      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+      IERC20(_collateral).safeTransferFrom(msg.sender, address(this), (_collateraLpAmount.add(_mintAmount)));
+      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < (_collateraLpAmount.add(_mintAmount))) {
         IERC20(_collateral).approve(address(_protocol), uint256(-1));
       }
       address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
       address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
 
-      uint256 mintAmount = _collateralAmount.mul((uint256(1 ether))).div(
-        (uint256(1 ether))
-        .add(_claimPool.getNormalizedWeight(_collateral).mul((uint256(1 ether))).div(_claimPool.getSpotPriceSansFee(claimTokenAddr,_collateral)))
-        .add(_noclaimPool.getNormalizedWeight(_collateral).mul((uint256(1 ether))).div(_noclaimPool.getSpotPriceSansFee(noclaimTokenAddr,_collateral))));
-      uint256 collateralToProvideClaimPool = mintAmount.mul(_claimPool.getNormalizedWeight(_collateral)).div(_claimPool.getSpotPriceSansFee(claimTokenAddr,_collateral));
-      uint256 collateralToProvideNoClaimPool = mintAmount.mul(_noclaimPool.getNormalizedWeight(_collateral)).div(_noclaimPool.getSpotPriceSansFee(noclaimTokenAddr,_collateral));
-
-      _protocol.addCover(_collateral, _expiration, mintAmount);
-      _provideLiquidity(_claimPool, claimTokenAddr, mintAmount, _collateral, collateralToProvideClaimPool);
-      _provideLiquidity(_noclaimPool, noclaimTokenAddr, mintAmount, _collateral, collateralToProvideNoClaimPool);
+      _protocol.addCover(_collateral, _expiration, _mintAmount);
+      _provideLiquidity(_claimPool, claimTokenAddr, _mintAmount, _collateral, _collateraLpAmount);
+      _provideLiquidity(_noclaimPool, noclaimTokenAddr, _mintAmount, _collateral, _collateraLpAmount);
 
       uint256 remainCollateral = IERC20(_collateral).balanceOf(address(this));
       if (remainCollateral > 0) {
@@ -82,17 +80,7 @@ contract CoverMarketMakers {
       uint256 _bptAmountClaim,
       uint256 _bptAmountNoClaim
     ) external {
-      require(_bptAmountClaim > 0, "CoverRouter: insufficient covToken");
-      require(_bptAmountNoClaim > 0, "CoverRouter: insufficient covToken");
-
-      uint256[] memory minAmountsOut = new uint256[](2);
-      minAmountsOut[0] = 0;
-      minAmountsOut[1] = 0;
-
-      IERC20(_claimPoolAddr).safeTransferFrom(msg.sender, address(this), _bptAmountClaim);
-      IERC20(_noclaimPoolAddr).safeTransferFrom(msg.sender, address(this), _bptAmountNoClaim);
-      IBPool(_claimPoolAddr).exitPool(IERC20(_claimPoolAddr).balanceOf(address(this)), minAmountsOut);
-      IBPool(_noclaimPoolAddr).exitPool(IERC20(_noclaimPoolAddr).balanceOf(address(this)), minAmountsOut);
+      _withdrawLiquidity(_claimPoolAddr, _noclaimPoolAddr, _bptAmountClaim, _bptAmountNoClaim);
 
       address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
       address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
@@ -105,7 +93,57 @@ contract CoverMarketMakers {
       collateralToken.safeTransfer(msg.sender, collateralToken.balanceOf(address(this)));
     }
 
-    function _provideLiquidity(IBPool _bPool, address _covTokenAddress, uint256 _covTokenAmount, address _collateralAddress, uint256 _collateralAmount) private {
+    function marketMakerWithdrawAndRedeem(
+      IProtocol _protocol,
+      ICover _cover,
+      address _claimPoolAddr,
+      address _noclaimPoolAddr,
+      uint48 _expiration,
+      address _collateral,
+      uint256 _bptAmountClaim,
+      uint256 _bptAmountNoClaim
+      ) external {
+      _withdrawLiquidity(_claimPoolAddr, _noclaimPoolAddr, _bptAmountClaim, _bptAmountNoClaim);
+
+      address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
+      address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);
+
+      IERC20 claimToken = IERC20(claimTokenAddr);
+      IERC20 noClaimToken = IERC20(noclaimTokenAddr);
+      uint256 redeemAmount =  claimToken.balanceOf(address(this)) > noClaimToken.balanceOf(address(this)) ? claimToken.balanceOf(address(this)) : noClaimToken.balanceOf(address(this));
+      _cover.redeemCollateral(redeemAmount);
+
+      uint256 bal = IERC20(_collateral).balanceOf(address(this));
+
+      require(IERC20(_collateral).transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
+    }
+
+    function _withdrawLiquidity(
+      address _claimPoolAddr,
+      address _noclaimPoolAddr,
+      uint256 _bptAmountClaim,
+      uint256 _bptAmountNoClaim
+      ) private {
+      require(_bptAmountClaim > 0, "MarketMaker: insufficient bpt balance");
+      require(_bptAmountNoClaim > 0, "MarketMaker: insufficient bpt balance");
+
+      uint256[] memory minAmountsOut = new uint256[](2);
+      minAmountsOut[0] = 0;
+      minAmountsOut[1] = 0;
+
+      IERC20(_claimPoolAddr).safeTransferFrom(msg.sender, address(this), _bptAmountClaim);
+      IERC20(_noclaimPoolAddr).safeTransferFrom(msg.sender, address(this), _bptAmountNoClaim);
+      IBPool(_claimPoolAddr).exitPool(IERC20(_claimPoolAddr).balanceOf(address(this)), minAmountsOut);
+      IBPool(_noclaimPoolAddr).exitPool(IERC20(_noclaimPoolAddr).balanceOf(address(this)), minAmountsOut);
+    }
+
+    function _provideLiquidity(
+      IBPool _bPool,
+      address _covTokenAddress,
+      uint256 _covTokenAmount,
+      address _collateralAddress,
+      uint256 _collateralAmount
+      ) private {
       if (IERC20(_covTokenAddress).allowance(address(this), address(_bPool)) < _covTokenAmount) {
         IERC20(_covTokenAddress).approve(address(_bPool), uint256(-1));
       }
@@ -139,5 +177,16 @@ contract CoverMarketMakers {
       }
     }
 
+    function getCollateralAmountLp(
+      IBPool _bPool,
+      address _covTokenAddr,
+      address _collateralAddr,
+      uint256 _mintAmount
+      ) external view returns(uint256) {
+
+      return _bPool.getBalance(_collateralAddr).mul(_mintAmount).div(_bPool.getBalance(_covTokenAddr));
+    }
+
     receive() external payable {}
+
 }

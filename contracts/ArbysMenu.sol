@@ -106,9 +106,9 @@ contract ArbysMenu {
 
     function arbitrageBuy(IProtocol _protocol, ICover _cover, IBalancerPool _claimPool, IBalancerPool _noclaimPool, uint48 _expiration, uint256 _collateralAmount, address _collateral) external {
       IERC20(_collateral).transferFrom(msg.sender, address(this), _collateralAmount);
-      if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
+      /* if (IERC20(_collateral).allowance(address(this), address(_protocol)) < _collateralAmount) {
         IERC20(_collateral).approve(address(_protocol), uint256(-1));
-      }
+      } */
 
       address noclaimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), false);
       address claimTokenAddr = factory.getCovTokenAddress(_protocol.name(), _expiration, _collateral, _protocol.claimNonce(), true);

@@ -28,7 +28,7 @@ let arbysMenu;
 let coverMarketMaker;
 
 // balances
-let daiAmountMint = 75000;
+let daiAmountMint = 70000;
 let daiAmountCp = 1000;
 let daiAmountPr = 1000;
 let daiArbyBuyAmount = 10;
@@ -78,12 +78,12 @@ describe("### Acquire DAI", function() {
   });
 
   it("should allow to swap ETH for DAI via Balancer (ETH - WETH - DAI)", async function() {
+    this.timeout(40000);
     daiAmountMint = ethers.utils.parseEther(daiAmountMint.toString());
 
     await balancerWethDai.pay(daiAmountMint, {value: ethers.utils.parseEther("500")});
     balanceDai = await dai.balanceOf(deployer.getAddress());
-    assert.equal(ethers.utils.formatEther(balanceDai), ethers.utils.formatEther(daiAmountMint));
-    console.log("Initial DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
+    console.log("Minted DAI: " + ethers.utils.formatEther(balanceDai).toString());
   });
 });
 
@@ -92,23 +92,26 @@ describe("### Market Maker: Deposit and Withdraw", () => {
     this.timeout(40000);
     balanceDai = await dai.balanceOf(deployer.getAddress());
 
-    daiAmountLp = ethers.utils.parseEther("50000");
-    let txApprove = await dai.approve(coverMarketMaker.address, daiAmountLp);
+    let covAmount = ethers.utils.parseEther("50000");
+
+    const collateralAmountClaimPool = await coverMarketMaker.getCollateralAmountLp(balPoolAddrDaiClaim, claimAddr, daiAddr, covAmount);
+    const collateralAmountNoClaimPool = await coverMarketMaker.getCollateralAmountLp(balPoolAddrDaiNoClaim, noClaimAddr, daiAddr, covAmount);
+    const daiAmountLp = collateralAmountClaimPool.add(collateralAmountNoClaimPool);
+
+    let txApprove = await dai.approve(coverMarketMaker.address, covAmount.add(daiAmountLp));
     await txApprove.wait();
 
-    let tx = await coverMarketMaker.marketMakerDeposit(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, daiAmountLp, daiAddr);
+    let tx = await coverMarketMaker.marketMakerDeposit(coveredProtocolAddr, balPoolAddrDaiClaim, balPoolAddrDaiNoClaim, coverageExpirationTime, covAmount, daiAmountLp, daiAddr);
 
-    balanceDai = await dai.balanceOf(deployer.getAddress());
     let balanceClaimBpt = await bptDaiClaim.balanceOf(deployer.getAddress());
     let balanceNoClaimBpt = await bptDaiNoClaim.balanceOf(deployer.getAddress());
     let balanceClaim = await claim.balanceOf(deployer.getAddress());
     let balanceNoClaim = await noClaim.balanceOf(deployer.getAddress());
-    console.log("DAI deposited: " + ethers.utils.formatEther(daiAmountLp).toString());
+    console.log("DAI deposited: " + ethers.utils.formatEther(covAmount.add(daiAmountLp)).toString());
     console.log("CLAIM balance: " + ethers.utils.formatEther(balanceClaim).toString());
     console.log("CLAIM-BPT balance: " + ethers.utils.formatEther(balanceClaimBpt).toString());
     console.log("NOCLAIM balance: " + ethers.utils.formatEther(balanceNoClaim).toString());
     console.log("NOCLAIM-BPT balance: " + ethers.utils.formatEther(balanceNoClaimBpt).toString());
-    console.log("DAI balance: " + ethers.utils.formatEther(balanceDai).toString());
   });
   it("should withdraw liquidity from both balancer cov-tokenpair pools", async function() {
     this.timeout(40000);
