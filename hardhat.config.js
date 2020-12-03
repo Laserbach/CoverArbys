@@ -12,7 +12,11 @@ module.exports = {
     },
     kovan: {
       url: process.env.KOVAN_URL,
-      accounts: [process.env.PRIVATE_KEY]
+      accounts: [process.env.PRIVATE_KEY_KOVAN]
+    },
+    mainnet: {
+      url: process.env.MAINNET_URL,
+      accounts: [process.env.PRIVATE_KEY_MAIN]
     }
   },
   etherscan: {
