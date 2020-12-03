@@ -110,12 +110,16 @@ contract CoverMarketMakers {
 
       IERC20 claimToken = IERC20(claimTokenAddr);
       IERC20 noClaimToken = IERC20(noclaimTokenAddr);
-      uint256 redeemAmount =  claimToken.balanceOf(address(this)) > noClaimToken.balanceOf(address(this)) ? claimToken.balanceOf(address(this)) : noClaimToken.balanceOf(address(this));
-      _cover.redeemCollateral(redeemAmount);
 
-      uint256 bal = IERC20(_collateral).balanceOf(address(this));
+      address redeemCovAddr = claimToken.balanceOf(address(this)) > noClaimToken.balanceOf(address(this)) ? noclaimTokenAddr : claimTokenAddr;
+      address remainCovAddr = redeemCovAddr == claimTokenAddr ? noclaimTokenAddr : claimTokenAddr;
 
-      require(IERC20(_collateral).transfer(msg.sender, bal), "ERR_TRANSFER_FAILED");
+      _cover.redeemCollateral(IERC20(redeemCovAddr).balanceOf(address(this)));
+
+      if (IERC20(remainCovAddr).balanceOf(address(this)) > 0) {
+        IERC20(remainCovAddr).safeTransfer(msg.sender, IERC20(remainCovAddr).balanceOf(address(this)));
+      }
+      IERC20(_collateral).safeTransfer(msg.sender, IERC20(_collateral).balanceOf(address(this)));
     }
 
     function _withdrawLiquidity(
