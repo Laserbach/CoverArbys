@@ -40,19 +40,22 @@ describe("### GET POOL STATS", function() {
     const weightDai = await bpoolClaim.getNormalizedWeight(daiAddr);
 
     // price
-    const fetchedClaimPrice = await bpoolClaim.getSpotPrice(daiAddr, claimAddr);
+    const claimPrice = await bpoolClaim.getSpotPrice(daiAddr, claimAddr);
 
-    // calc
-    const daiFactor = (weightDai.mul(amountClaimInPool).mul(oneEther)).div((weightClaim.mul(amountDaiInPool)));
-    const volumeRequired = ((amountDaiInPool.mul(daiFactor)).div(oneEther)).sub(amountDaiInPool); // volume needed for 1 CLAIM = 1 DAI
+    // swap fee
     const swapFee = await bpoolClaim.getSwapFee();
-    const feesEarnedOnVolume = volumeRequired.mul(swapFee).div(oneEther);
+
+    // calc amount of DAI to sell
+    const slippagePerUnit = (1 - ethers.utils.formatEther(swapFee)) / (2 * ethers.utils.formatEther(amountDaiInPool) * ethers.utils.formatEther(weightClaim));
+    const amountToBuy = (1 - ethers.utils.formatEther(claimPrice)) / (ethers.utils.formatEther(claimPrice) * slippagePerUnit)
+    const totalSlippage = slippagePerUnit * amountToBuy * 100;
 
     console.log("Amount of DAI in BPool: " + ethers.utils.formatEther(amountDaiInPool).toString());
     console.log("Amount of CLAIM in BPool: " + ethers.utils.formatEther(amountClaimInPool).toString());
-    console.log("Fetched current CLAIM price: " + ethers.utils.formatEther(fetchedClaimPrice).toString());
+    console.log("Fetched current CLAIM price: " + ethers.utils.formatEther(claimPrice).toString());
     console.log("Weight CLAIM: "+ethers.utils.formatEther(weightClaim).toString()+" __ Weight DAI: "+ethers.utils.formatEther(weightDai).toString());
-    console.log("DAI multiplicator to reach 1 DAI = 1 CLAIM: "+ethers.utils.formatEther(daiFactor).toString());
-    console.log("Volume required for 1 CLAIM = 1 DAI: "+ethers.utils.formatEther(volumeRequired).toString()+" __ Fees earned: "+ethers.utils.formatEther(feesEarnedOnVolume).toString());
+    console.log("##########################################");
+    console.log("Amount of CLAIM to buy (for 1 DAI = 1 CLAIM): "+amountToBuy.toString());
+    console.log("Slippage per Unit: "+slippagePerUnit.toString()+" -- Total Slippage [%]: "+totalSlippage.toString());
   });
 });
